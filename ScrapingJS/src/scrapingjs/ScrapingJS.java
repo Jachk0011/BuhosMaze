@@ -8,6 +8,8 @@ import java.awt.Color;
 import java.io.File;
 import java.io.IOException;
 import java.awt.image.BufferedImage;
+import java.io.BufferedWriter;
+import java.io.FileWriter;
 import java.util.ArrayList;
 import javax.imageio.ImageIO;
 import java.lang.*;
@@ -32,24 +34,26 @@ public class ScrapingJS {
     public static final String ANSI_PURPLE_BACKGROUND = "\u001B[45m";
     public static final String ANSI_CYAN_BACKGROUND = "\u001B[46m";
     public static final String ANSI_WHITE_BACKGROUND = "\u001B[47m";
-    int tam_pixel = 23;   //Tamaño de cuadro, 24 pixeles por 24 pixeles
+    int tam_pixel = 23;   //Tamaño de cuadro, 23 pixeles por 23 pixeles
     int width, height;
-    int direccion = 1;                     //Se definen las direcciones, 0-> Abajo, 1-> Arriba, 2-> Derecha, 3-> Izquierda
+    int direccion = 1;                     //Se definen las direcciones, 0-> Abajo, 1-> Arriba, 2-> Derecha, 3-> Izquierda, empieza por defecto hacia arriba
+    int nivel_actual;                      //Esta variable guarda el nivel actual que se está procesando
     
     public static void main(String args[])throws IOException, InterruptedException{
         ScrapingJS funciones = new ScrapingJS();
         for(int i=1; i<=3; i++){
+            funciones.nivel_actual = i;                          //Se guarda el nivel actual
             System.out.print(ANSI_PURPLE_BACKGROUND + ANSI_PURPLE + "                       NIVEL    " + i + "                        "+ ANSI_RESET);
-            Thread.sleep(5000);
-            funciones.niveles(i);
-            funciones.direccion = 1;
+            Thread.sleep(5000);                                  //Tiempo de sleep para leer el aviso de nivel
+            funciones.niveles(i);                                //En base al nivel actual se llama la funcion niveles para saber como operar 
+            funciones.direccion = 1;                             //Se guarda el valor por defecto de la dirección para el siguiente nivel
         }
     }
     
     public void niveles(int num_level) throws InterruptedException{
         BufferedImage img = null;
         File f = null;
-        switch(num_level){
+        switch(num_level){                   //Segun el nivel actual se carga el ScreenShot del nivel deseado para su posterior procesamiento
             case 1:
                 try{
                     f = new File("images\\Level1.jpg");    //Lectura de imagen, se debe poner la ruta de la imagen previamente abstraida mediante el programa realizado en python adjunto
@@ -83,7 +87,7 @@ public class ScrapingJS {
         height = height_img - (height_img%tam_pixel);
         
         this.mapear(img);     //Esta funcion se encarga de "eliminar" los pixeles que no aportan información
-        this.ampliar_cuadricula(img);    //Esta función amplia el mapa de pixeles y lo transforma en una matriz de números dependiendo el objeto
+        this.ampliar_cuadricula(img);    //Esta función amplia el mapa de pixeles y lo transforma en una matriz de números, el valor de cada posición de matriz dependera del objeto identificado
         this.imprimir_matriz();
         this.explorar();
     }
@@ -135,7 +139,7 @@ public class ScrapingJS {
         int p, R, G, B, contador_px_muros = 0, contador_px_camino = 0;         //Inicialización de variables
         matriz_mapa = new int[width/tam_pixel][height/tam_pixel];           //Se inicializa la matriz que tendrá la información final
         for(int y = 0; y < height; y+=tam_pixel){
-            for(int x = 0; x < width; x+=tam_pixel){                        //Se utilizan los primedos dos for para situar un marcador en el siguiente bloque de pixeles a analizar
+            for(int x = 0; x < width; x+=tam_pixel){                        //Se utilizan los primeos dos for para situar un marcador en el siguiente bloque de pixeles a analizar
                 for(int ypos = y; ypos < y+tam_pixel; ypos++){
                     for(int xpos = x; xpos < x+tam_pixel; xpos++){             //Cada bloque de pixeles se recorre para hacer conteo de pixeles de colores y determinar el tamaño final de ese cuadro
                         p = img.getRGB(xpos, ypos);
@@ -238,6 +242,7 @@ public class ScrapingJS {
                     marcar_cuadro(x, y, 5);            //El parametro es 5, representa un cuadro marcado, es decir ya se recorrió
                     next_pos[0] = x;
                     next_pos[1] = y+1;
+                    escribir_instrucciones(nivel_actual, direccion);
                     direccion_encontrada = true;
                 }
                 if(sen_inf==0 || sen_inf==3 || sen_inf==6){          //Se verifica si hay buhos o muros, eso con el fin de tomar una nueva dirección
@@ -247,6 +252,7 @@ public class ScrapingJS {
                             next_pos[0] = x+1;              //Abajo hay un muro, arriba hay una marca, a la derecha no hay ni 0 ni 3, entonces se puede girar a la derecha
                             next_pos[1] = y;
                             direccion = 2;
+                            escribir_instrucciones(nivel_actual, direccion);
                             direccion_encontrada = true;
                         }else{
                             if(sen_izq!=0 && sen_izq!=3 && sen_izq!=6 && sen_izq!=5){
@@ -254,12 +260,14 @@ public class ScrapingJS {
                                 next_pos[0] = x-1;                            //Abajo hay un muro, arriba hay una marca, a la derecha hay un 0 o un 3, entonces se debe girar a la izquierda
                                 next_pos[1] = y;
                                 direccion = 3;
+                                escribir_instrucciones(nivel_actual, direccion);
                                 direccion_encontrada = true;
                             }else{
                                 marcar_cuadro(x, y, 6);                 //El parametro es 6, representa un cuadro remarcado, es decir ya se identificó que no hay salida por ese camino
                                 next_pos[0] = x;
                                 next_pos[1] = y-1;
                                 direccion = 1;
+                                escribir_instrucciones(nivel_actual, direccion);
                                 direccion_encontrada = true;
                             }
                         }
@@ -274,12 +282,14 @@ public class ScrapingJS {
                                 next_pos[0] = x+1;              //Abajo hay un muro, arriba hay una marca, a la derecha no hay ni 0 ni 3, entonces se puede girar a la derecha
                                 next_pos[1] = y;
                                 direccion = 2;
+                                escribir_instrucciones(nivel_actual, direccion);
                                 direccion_encontrada = true;
                             }else{
                                 if(sen_izq!=0 && sen_izq!=3 && sen_izq!=6){
                                     next_pos[0] = x-1;                            //Abajo hay un muro, arriba hay una marca, a la derecha hay un 0 o un 3, entonces se debe girar a la izquierda
                                     next_pos[1] = y;
                                     direccion = 3;
+                                    escribir_instrucciones(nivel_actual, direccion);
                                     direccion_encontrada = true;
                                 }   
                             }
@@ -287,6 +297,7 @@ public class ScrapingJS {
                             next_pos[0] = x;                //Abajo hay un muro, arriba no hay una marca, entonces la siguiente direccion es arriba
                             next_pos[1] = y-1;
                             direccion = 1;
+                            escribir_instrucciones(nivel_actual, direccion);
                             direccion_encontrada = true;
                         }
                     }
@@ -297,17 +308,20 @@ public class ScrapingJS {
                         next_pos[0] = x+1;
                         next_pos[1] = y;
                         direccion = 2;
+                        escribir_instrucciones(nivel_actual, direccion);
                         direccion_encontrada = true;
                     }else{
                         if(sen_izq!=0 && sen_izq!=3 && sen_izq!=6 && sen_izq!=5){
                             next_pos[0] = x-1;
                             next_pos[1] = y;
                             direccion = 3;
+                            escribir_instrucciones(nivel_actual, direccion);
                             direccion_encontrada = true;
                         }else{
                             next_pos[0] = x;
                             next_pos[1] = y+1;
                             direccion = 0;
+                            escribir_instrucciones(nivel_actual, direccion);
                             direccion_encontrada = true;
                         }
                     }
@@ -316,13 +330,15 @@ public class ScrapingJS {
                     next_pos[0] = this.encontrar_direccion(sen_inf, sen_sup, sen_der, sen_izq, x, y)[0];
                     next_pos[1] = this.encontrar_direccion(sen_inf, sen_sup, sen_der, sen_izq, x, y)[1];
                     direccion = this.encontrar_direccion(sen_inf, sen_sup, sen_der, sen_izq, x, y)[2];
+                    escribir_instrucciones(nivel_actual, direccion);
                 }
                 break;
             case 1:
                 if(sen_sup==1 || sen_sup==2){          //Se prioriza el moviminiento hacia abajo y hacia a la derecha antes que arriba y a la izquierda
                     marcar_cuadro(x, y, 5);            //El parametro es 5, representa un cuadro marcado, es decir ya se recorrió
                     next_pos[0] = x;
-                    next_pos[1] = y-1;
+                    next_pos[1] = y-1; 
+                    escribir_instrucciones(nivel_actual, direccion);
                     direccion_encontrada = true;
                 }
                 if(sen_sup==0 || sen_sup==3 || sen_sup==6){          //Se verifica si hay buhos o muros, eso con el fin de tomar una nueva dirección
@@ -332,6 +348,7 @@ public class ScrapingJS {
                             next_pos[0] = x+1;              //Arriba hay un muro, abajo hay una marca, a la derecha no hay ni 0 ni 3, entonces se puede girar a la derecha
                             next_pos[1] = y;
                             direccion = 2;
+                            escribir_instrucciones(nivel_actual, direccion);
                             direccion_encontrada = true;
                         }else{
                             if(sen_izq!=0 && sen_izq!=3 && sen_izq!=6 && sen_izq!=5){
@@ -339,12 +356,14 @@ public class ScrapingJS {
                                 next_pos[0] = x-1;              //Arriba hay un muro, abajo hay una marca, a la derecha hay un 0 o un 3, entonces se debe girar a la izquierda
                                 next_pos[1] = y;
                                 direccion = 3;
+                                escribir_instrucciones(nivel_actual, direccion);
                                 direccion_encontrada = true;
                             }else{
                                 marcar_cuadro(x, y, 6);                 //El parametro es 6, representa un cuadro remarcado, es decir ya se identificó que no hay salida por ese camino
                                 next_pos[0] = x;
                                 next_pos[1] = y+1;
                                 direccion = 0;
+                                escribir_instrucciones(nivel_actual, direccion);
                                 direccion_encontrada = true;
                             } 
                         }
@@ -359,12 +378,14 @@ public class ScrapingJS {
                                 next_pos[0] = x+1;              //Arriba hay un muro, abajo hay una marca, a la derecha no hay ni 0 ni 3, entonces se puede girar a la derecha
                                 next_pos[1] = y;
                                 direccion = 2;
+                                escribir_instrucciones(nivel_actual, direccion);
                                 direccion_encontrada = true;
                             }else{
                                 if(sen_izq!=0 && sen_izq!=3 && sen_izq!=6){
                                     next_pos[0] = x-1;              //Arriba hay un muro, abajo hay una marca, a la derecha hay un 0 o un 3, entonces se debe girar a la izquierda
                                     next_pos[1] = y;
                                     direccion = 3;
+                                    escribir_instrucciones(nivel_actual, direccion);
                                     direccion_encontrada = true;
                                 }
                             }
@@ -372,6 +393,7 @@ public class ScrapingJS {
                             next_pos[0] = x;                //Arriba hay un muro, abajo no hay una marca, entonces la siguiente direccion es abajo
                             next_pos[1] = y+1;
                             direccion = 0;
+                            escribir_instrucciones(nivel_actual, direccion);
                             direccion_encontrada = true;
                         }
                     }
@@ -382,17 +404,20 @@ public class ScrapingJS {
                         next_pos[0] = x+1;
                         next_pos[1] = y;
                         direccion = 2;
+                        escribir_instrucciones(nivel_actual, direccion);
                         direccion_encontrada = true;
                     }else{
                         if(sen_izq!=0 && sen_izq!=3 && sen_izq!=6 && sen_izq!=5){
                             next_pos[0] = x-1;
                             next_pos[1] = y;
                             direccion = 3;
+                            escribir_instrucciones(nivel_actual, direccion);
                             direccion_encontrada = true;
                         }else{
                             next_pos[0] = x;
                             next_pos[1] = y-1;
                             direccion = 1;
+                            escribir_instrucciones(nivel_actual, direccion);
                             direccion_encontrada = true;
                         }
                     }
@@ -401,6 +426,7 @@ public class ScrapingJS {
                     next_pos[0] = this.encontrar_direccion(sen_inf, sen_sup, sen_der, sen_izq, x, y)[0];
                     next_pos[1] = this.encontrar_direccion(sen_inf, sen_sup, sen_der, sen_izq, x, y)[1];
                     direccion = this.encontrar_direccion(sen_inf, sen_sup, sen_der, sen_izq, x, y)[2];
+                    escribir_instrucciones(nivel_actual, direccion);
                 }
                 break;
             case 2:
@@ -408,6 +434,7 @@ public class ScrapingJS {
                     marcar_cuadro(x, y, 5);            //El parametro es 5, representa un cuadro marcado, es decir ya se recorrió
                     next_pos[0] = x+1;
                     next_pos[1] = y;
+                    escribir_instrucciones(nivel_actual, direccion);
                     direccion_encontrada = true;
                 }
                 if(sen_der==0 || sen_der==3 || sen_der==6){          //Se verifica si hay buhos o muros, eso con el fin de tomar una nueva dirección
@@ -417,6 +444,7 @@ public class ScrapingJS {
                             next_pos[0] = x;              //A la derecha hay un muro, a la izquierda hay una marca, abajo no hay ni 0 ni 3, entonces se puede girar hacia abajo
                             next_pos[1] = y+1;
                             direccion = 0;
+                            escribir_instrucciones(nivel_actual, direccion);
                             direccion_encontrada = true;
                         }else{
                             if(sen_sup!=0 && sen_sup!=3 && sen_sup!=6 && sen_sup!=5){
@@ -424,12 +452,14 @@ public class ScrapingJS {
                                 next_pos[0] = x;              //A la derecha hay un muro, a la izquierda hay una marca, abajo hay un 0 o un 3, entonces se debe girar hacia arriba
                                 next_pos[1] = y-1;
                                 direccion = 1;
+                                escribir_instrucciones(nivel_actual, direccion);
                                 direccion_encontrada = true;
                             }else{
                                 marcar_cuadro(x, y, 6);                 //El parametro es 6, representa un cuadro remarcado, es decir ya se identificó que no hay salida por ese camino
                                 next_pos[0] = x-1;
                                 next_pos[1] = y;
                                 direccion = 3;
+                                escribir_instrucciones(nivel_actual, direccion);
                                 direccion_encontrada = true;
                             } 
                         }
@@ -444,12 +474,14 @@ public class ScrapingJS {
                                 next_pos[0] = x;              //A la derecha hay un muro, a la izquierda hay una marca, abajo no hay ni 0 ni 3, entonces se puede girar hacia abajo
                                 next_pos[1] = y+1;
                                 direccion = 0;
+                                escribir_instrucciones(nivel_actual, direccion);
                                 direccion_encontrada = true;
                             }else{
                                 if(sen_sup!=0 && sen_sup!=3 && sen_sup!=6){
                                     next_pos[0] = x;              //A la derecha hay un muro, a la izquierda hay una marca, abajo hay un 0 o un 3, entonces se debe girar hacia arriba
                                     next_pos[1] = y-1;
                                     direccion = 1;
+                                    escribir_instrucciones(nivel_actual, direccion);
                                     direccion_encontrada = true;
                                 }
                             }
@@ -457,6 +489,7 @@ public class ScrapingJS {
                             next_pos[0] = x-1;                //A la derecha hay un muro, a la izquierda no hay una marca, entonces la siguiente direccion es izquierda
                             next_pos[1] = y;
                             direccion = 3;
+                            escribir_instrucciones(nivel_actual, direccion);
                             direccion_encontrada = true;
                         }
                     }
@@ -467,17 +500,20 @@ public class ScrapingJS {
                         next_pos[0] = x;
                         next_pos[1] = y+1;
                         direccion = 0;
+                        escribir_instrucciones(nivel_actual, direccion);
                         direccion_encontrada = true;
                     }else{
                         if(sen_sup!=0 && sen_sup!=3 && sen_sup!=6 && sen_sup!=5){
                             next_pos[0] = x;
                             next_pos[1] = y-1;
                             direccion = 1;
+                            escribir_instrucciones(nivel_actual, direccion);
                             direccion_encontrada = true;
                         }else{
                             next_pos[0] = x+1;
                             next_pos[1] = y;
                             direccion = 2;
+                            escribir_instrucciones(nivel_actual, direccion);
                             direccion_encontrada = true;
                         } 
                     }
@@ -486,6 +522,7 @@ public class ScrapingJS {
                     next_pos[0] = this.encontrar_direccion(sen_inf, sen_sup, sen_der, sen_izq, x, y)[0];
                     next_pos[1] = this.encontrar_direccion(sen_inf, sen_sup, sen_der, sen_izq, x, y)[1];
                     direccion = this.encontrar_direccion(sen_inf, sen_sup, sen_der, sen_izq, x, y)[2];
+                    escribir_instrucciones(nivel_actual, direccion);
                 }
                 break;
             case 3:
@@ -493,6 +530,7 @@ public class ScrapingJS {
                     marcar_cuadro(x, y, 5);            //El parametro es 5, representa un cuadro marcado, es decir ya se recorrió
                     next_pos[0] = x-1;
                     next_pos[1] = y;
+                    escribir_instrucciones(nivel_actual, direccion);
                     direccion_encontrada = true;
                 }
                 if(sen_izq==0 || sen_izq==3 || sen_izq==6){          //Se verifica si hay buhos o muros, eso con el fin de tomar una nueva dirección
@@ -502,6 +540,7 @@ public class ScrapingJS {
                             next_pos[0] = x;              //A la derecha hay un muro, a la izquierda hay una marca, abajo no hay ni 0 ni 3, entonces se puede girar hacia abajo
                             next_pos[1] = y+1;
                             direccion = 0;
+                            escribir_instrucciones(nivel_actual, direccion);
                             direccion_encontrada = true;
                         }else{
                             if(sen_sup!=0 && sen_sup!=3 && sen_sup!=6 && sen_sup!=5){
@@ -509,12 +548,14 @@ public class ScrapingJS {
                                 next_pos[0] = x;              //A la derecha hay un muro, a la izquierda hay una marca, abajo hay un 0 o un 3, entonces se debe girar hacia arriba
                                 next_pos[1] = y-1;
                                 direccion = 1;
+                                escribir_instrucciones(nivel_actual, direccion);
                                 direccion_encontrada = true;
                             }else{
                                 marcar_cuadro(x, y, 6);                 //El parametro es 6, representa un cuadro remarcado, es decir ya se identificó que no hay salida por ese camino
                                 next_pos[0] = x+1;
                                 next_pos[1] = y;
                                 direccion = 2;
+                                escribir_instrucciones(nivel_actual, direccion);
                                 direccion_encontrada = true;  
                             }
                         }
@@ -529,12 +570,14 @@ public class ScrapingJS {
                                 next_pos[0] = x;              //A la derecha hay un muro, a la izquierda hay una marca, abajo no hay ni 0 ni 3, entonces se puede girar hacia abajo
                                 next_pos[1] = y+1;
                                 direccion = 0;
+                                escribir_instrucciones(nivel_actual, direccion);
                                 direccion_encontrada = true;
                             }else{
                                 if(sen_sup!=0 && sen_sup!=3 && sen_sup!=6){
                                     next_pos[0] = x;              //A la derecha hay un muro, a la izquierda hay una marca, abajo hay un 0 o un 3, entonces se debe girar hacia arriba
                                     next_pos[1] = y-1;
                                     direccion = 1;
+                                    escribir_instrucciones(nivel_actual, direccion);
                                     direccion_encontrada = true;
                                 }
                             }
@@ -542,6 +585,7 @@ public class ScrapingJS {
                             next_pos[0] = x+1;                //A la derecha hay un muro, a la izquierda no hay una marca, entonces la siguiente direccion es izquierda
                             next_pos[1] = y;
                             direccion = 2;
+                            escribir_instrucciones(nivel_actual, direccion);
                             direccion_encontrada = true;
                         }
                     }
@@ -552,17 +596,20 @@ public class ScrapingJS {
                         next_pos[0] = x;
                         next_pos[1] = y+1;
                         direccion = 0;
+                        escribir_instrucciones(nivel_actual, direccion);
                         direccion_encontrada = true;
                     }else{
                         if(sen_sup!=0 && sen_sup!=3 && sen_sup!=6 && sen_sup!=5){
                             next_pos[0] = x;
                             next_pos[1] = y-1;
                             direccion = 1;
+                            escribir_instrucciones(nivel_actual, direccion);
                             direccion_encontrada = true;
                         }else{
                             next_pos[0] = x-1;
                             next_pos[1] = y;
                             direccion = 3;
+                            escribir_instrucciones(nivel_actual, direccion);
                             direccion_encontrada = true;
                         }
                     }
@@ -571,6 +618,7 @@ public class ScrapingJS {
                     next_pos[0] = this.encontrar_direccion(sen_inf, sen_sup, sen_der, sen_izq, x, y)[0];
                     next_pos[1] = this.encontrar_direccion(sen_inf, sen_sup, sen_der, sen_izq, x, y)[1];
                     direccion = this.encontrar_direccion(sen_inf, sen_sup, sen_der, sen_izq, x, y)[2];
+                    escribir_instrucciones(nivel_actual, direccion);
                 }
                 break;
         }
@@ -578,7 +626,7 @@ public class ScrapingJS {
     }
     
     public void marcar_cuadro(int x, int y, int parametro){
-        matriz_mapa[x][y] = parametro;        //El número 5 va a representar el marcado de un cuadro ya recorrido
+        matriz_mapa[x][y] = parametro;        //El número 5 va a representar el marcado de un cuadro ya recorrido, el 6 representa un cuadro re marcado, es decir que ya sabe que es un camino cerrado
     }
     
     public int[] encontrar_direccion(int inf, int sup, int der, int izq, int x, int y){
@@ -586,9 +634,9 @@ public class ScrapingJS {
         switch(direccion){
             case 0:
                 if(izq==6){
-                    arreglo[0] = x-1;
+                    arreglo[0] = x-1;          //Con esta función se detecta la siguiente posición en casos especiales donde se está rodeado de muros y de (6) es decir caminos cerrados
                     arreglo[1] = y;
-                    arreglo[2] = 3;
+                    arreglo[2] = 3;            //Segun la dirección previa, se mantiene un orden de prioridad en la siguiente posición
                 }
                 if(der==6){
                     arreglo[0] = x+1;
@@ -736,11 +784,11 @@ public class ScrapingJS {
                 break;
         }
         if(matriz_mapa[j][i]==1 || matriz_mapa[j][i]==2 || matriz_mapa[j][i]==5 || matriz_mapa[j][i]==6){      //El 5 representa un cuadro marcado, pero se puede volver a recorrer, no se recorre solamente cuando está remarcado
-            next_position = this.logica(sensor_izquierdo, sensor_derecho, sensor_superior, sensor_inferior, j, i);
+            next_position = this.logica(sensor_izquierdo, sensor_derecho, sensor_superior, sensor_inferior, j, i);    //Se obtiene la siguiente posicion
             if(matriz_mapa[next_position[0]][next_position[1]]!=4){
-                Thread.sleep(400);
-                this.imprimir_matriz();
-                this.funcion_recursiva(next_position[0], next_position[1]);
+                Thread.sleep(200);     //Se duerme el programa para una mejor visualización del recorrido
+                this.imprimir_matriz();            //Se imprime la matriz
+                this.funcion_recursiva(next_position[0], next_position[1]);   //Se vuelve a llamar la funcion recursiva
             }
         }
     }
@@ -776,6 +824,70 @@ public class ScrapingJS {
         }
         System.out.println(ANSI_PURPLE_BACKGROUND + "0-> MUROS   1-> CAMINOS   2-> CARRO    3-> BUHOS   4-> CASA" + ANSI_RESET);
         System.out.println("");
+    }
+    
+    public void escribir_instrucciones(int level, int ins){   //Esta funcion se usa para escribir un conjunto de instrucciones en un txt, esto con el fin de ser usadas en la solucion del juego en la web
+        BufferedWriter bw = null;
+        FileWriter fw = null;
+        switch(level){
+            case 1:
+            try{
+                File file = new File("Instrucciones_1.txt");
+                fw = new FileWriter(file.getAbsoluteFile(), true);
+                bw = new BufferedWriter(fw);
+                bw.write(String.valueOf(ins));
+            }catch(IOException e){
+                e.printStackTrace();
+            }finally{
+                try{
+                    if(bw != null)
+                        bw.close();
+                    if(fw != null)
+                        fw.close();
+                }catch(IOException ex){
+                    ex.printStackTrace();
+                }
+            }
+                break;
+            case 2:
+                try{
+                    File file = new File("Instrucciones_2.txt");
+                    fw = new FileWriter(file.getAbsoluteFile(), true);   //Se pueden obtener por separado las instrucciones de cada nivel o una tira completa de las instrucciones de los 3 niveles
+                    bw = new BufferedWriter(fw);                         //Las instrucciones tienen la misma nomenclatura que la usada en la logica 0->inferior 1->superior 2->derecha 3->izquierda
+                    bw.write(String.valueOf(ins));
+                }catch(IOException e){
+                    e.printStackTrace();
+                }finally{
+                    try{
+                        if(bw != null)
+                            bw.close();
+                        if(fw != null)
+                            fw.close();
+                    }catch(IOException ex){
+                        ex.printStackTrace();
+                    }
+                }
+                break;
+            case 3:
+                try{
+                    File file = new File("Instrucciones_3.txt");
+                    fw = new FileWriter(file.getAbsoluteFile(), true);
+                    bw = new BufferedWriter(fw);
+                    bw.write(String.valueOf(ins));
+                }catch(IOException e){
+                    e.printStackTrace();
+                }finally{
+                    try{
+                        if(bw != null)
+                            bw.close();
+                        if(fw != null)
+                            fw.close();
+                    }catch(IOException ex){
+                        ex.printStackTrace();
+                    }
+                }
+                break;
+        }
     }
 }
 
